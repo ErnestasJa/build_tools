@@ -21,6 +21,7 @@ class Platform:
         except:
             return False
 
+    @staticmethod
     def CheckExecutableExists(name):
         if Platform.Is('windows'):
             return Platform.ExecCommand("where " + name)
