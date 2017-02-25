@@ -94,7 +94,7 @@ class BuildCommand(object):
     """docstring for BuildCommand"""
     def __init__(self):
         super(BuildCommand).__init__()
-        
+
     def Exec(self):
         print("Should be implemented by specific command")
 
@@ -102,10 +102,12 @@ class BuildCommand(object):
 class CMakeCommand(BuildCommand):
 
     """docstring for CMakeCommand"""
-    def __init__(self, compiler):
+    def __init__(self, compiler, **kwargs):
         super(CMakeCommand, self).__init__()
         self.compiler = compiler
         self.generator = self.compiler.generator()
+        self.common_defines = {}
+        self.common_defines.update(kwargs.get('defines', {}))
 
     def __formatDefines(self, defines):
         command = ""
@@ -114,6 +116,15 @@ class CMakeCommand(BuildCommand):
 
         return command
 
+    def __copyCompileFlags(self, cmake_dir, build_dir):
+        filename = "compile_commands.json"
+        fullpath = str(build_dir.Join(filename))
+        try:
+            FileSystem.CopyFiles([[filename,fullpath]], str(cmake_dir))
+        except:
+            print("did not find " + filename + " for: " + str(cmake_dir))
+
+        print("copied file: " + fullpath + " to: " + str(cmake_dir))
 
     def Exec(self, cmake_dir, build_dir,  **kwargs):
         FileSystem.PushDir()
@@ -122,6 +133,7 @@ class CMakeCommand(BuildCommand):
             FileSystem.CreateAndChangeDir(build_dir)
 
             defines = {'CMAKE_BUILD_TYPE':'RelWithDebInfo'}
+            defines.update(self.common_defines)
             defines.update(kwargs.get('defines', {}))
 
             command  = "cmake " + str(cmake_dir)
@@ -129,8 +141,9 @@ class CMakeCommand(BuildCommand):
             command += " -G \"" + self.generator + "\""
 
             Platform.ExecCommand(command)
-
+            self.__copyCompileFlags(cmake_dir, build_dir)
             self.compiler.compile(**kwargs)
+
         finally:
             FileSystem.PopDir()
 
@@ -145,7 +158,7 @@ def GetCompiler(**kwargs):
         "nmake" : NMakeCompiler()
     }
 
-    platform_compilers = { 
+    platform_compilers = {
         "linux"  : ['gcc'],
         "windows": ['jom', 'nmake', 'mingw']
     }
@@ -191,7 +204,7 @@ class FileSystem:
             for filename in fnmatch.filter(filenames, '*' + extension):
                 if filename != "objects" + extension:
                     file_matches.append([filename,os.path.join(root, filename)])
-                        
+
         return file_matches
 
     @staticmethod
@@ -258,4 +271,4 @@ class FileSystem:
 
 
 
-#End of build tools 
+#End of build tools
