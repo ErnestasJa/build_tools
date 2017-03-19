@@ -98,6 +98,19 @@ class BuildCommand(object):
     def Exec(self):
         print("Should be implemented by specific command")
 
+class PlatformCommand(BuildCommand):
+    def __init__(self, **kwargs):
+        super(PlatformCommand, self).__init__()
+
+    def Exec(self, dir, command):
+        FileSystem.PushDir()
+
+        try:
+            FileSystem.ChangeDir(dir)
+            Platform.ExecCommand(command)
+
+        finally:
+            FileSystem.PopDir()
 
 class CMakeCommand(BuildCommand):
 
