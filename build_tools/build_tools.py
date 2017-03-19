@@ -1,5 +1,5 @@
 import fnmatch
-import os, sys, shutil, subprocess, platform
+import os, sys, shutil, subprocess, platform, traceback, json
 from distutils.dir_util import copy_tree
 
 class Platform:
@@ -129,15 +129,51 @@ class CMakeCommand(BuildCommand):
 
         return command
 
-    def __copyCompileFlags(self, cmake_dir, build_dir):
+    def __copyCompileFlags(self, cmake_dir, build_dir, **kwargs):
+
         filename = "compile_commands.json"
         fullpath = str(build_dir.Join(filename))
-        try:
-            FileSystem.CopyFiles([[filename,fullpath]], str(cmake_dir))
-        except:
-            print("did not find " + filename + " for: " + str(cmake_dir))
+        compile_commands_dir = PathBuilder(kwargs.get('flags_path', cmake_dir)).Join(".clang_complete")
 
-        print("copied file: " + fullpath + " to: " + str(cmake_dir))
+        try:
+            self._generateClangCompletionFlags(fullpath, compile_commands_dir)
+        except:
+            traceback.print_exc()
+
+    def _generateClangCompletionFlags(self, compile_commands_path, output_path):
+        commands = ""
+
+        with open(compile_commands_path, "r") as cfile:
+            content = cfile.read()
+            cjson = json.loads(content)
+            commands = cjson[0]["command"].split()
+
+        prevcmd = ""
+        cmds = self._parseCommands(commands)
+
+        with open(str(output_path), "w") as cfile:
+            cfile.write(cmds)
+
+    def _parseCommands(self, commands):
+        cmds = ""
+        i = 0
+        while i < len(commands):
+            cmd = commands[i]
+            next_cmd = commands[i+1] if i < len(commands) - 1 else None
+
+            if cmd.startswith(("-c", "-g", "-o", "-pg", "-O")):
+                i = i + 1
+            elif cmd.startswith("-"):
+                if next_cmd is None or next_cmd.startswith("-"):
+                    cmds += cmd + "\n"
+                    i = i + 1
+                else:
+                    cmds += cmd + " " + next_cmd + "\n"
+                    i = i + 2
+            else:
+                i = i + 1
+
+        return cmds
 
     def Exec(self, cmake_dir, build_dir,  **kwargs):
         FileSystem.PushDir()
@@ -154,7 +190,7 @@ class CMakeCommand(BuildCommand):
             command += " -G \"" + self.generator + "\""
 
             Platform.ExecCommand(command)
-            self.__copyCompileFlags(cmake_dir, build_dir)
+            self.__copyCompileFlags(cmake_dir, build_dir, **kwargs)
             self.compiler.compile(**kwargs)
 
         finally:
@@ -282,6 +318,8 @@ class FileSystem:
     def ChangeDir(dir):
         os.chdir(str(dir))
 
-
+    @staticmethod
+    def Exists(path):
+        return os.path.exists(str(path))
 
 #End of build tools
