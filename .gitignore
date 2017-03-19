@@ -41,3 +41,6 @@ doc/*
 
 #Python
 __pycache__/
+build_tools\.egg-info/
+build/lib/
+*.egg
