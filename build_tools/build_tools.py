@@ -2,6 +2,13 @@ import fnmatch
 import os, sys, shutil, subprocess, platform, traceback, json
 from distutils.dir_util import copy_tree
 
+def PrintException():
+    print('-'*60)
+    print("Exception occured:")
+    print('-'*60)
+    traceback.print_exc(file=sys.stdout)
+    print('-'*60)
+
 class Platform:
     @staticmethod
     def Is(name):
@@ -108,7 +115,9 @@ class PlatformCommand(BuildCommand):
         try:
             FileSystem.ChangeDir(dir)
             Platform.ExecCommand(command)
-
+        except:
+            PrintException()
+            raise
         finally:
             FileSystem.PopDir()
 
@@ -138,7 +147,7 @@ class CMakeCommand(BuildCommand):
         try:
             self._generateClangCompletionFlags(fullpath, compile_commands_dir)
         except:
-            traceback.print_exc()
+            PrintException()
 
     def _generateClangCompletionFlags(self, compile_commands_path, output_path):
         commands = ""
@@ -193,6 +202,9 @@ class CMakeCommand(BuildCommand):
             self.__copyCompileFlags(cmake_dir, build_dir, **kwargs)
             self.compiler.compile(**kwargs)
 
+        except:
+            PrintException()
+            raise
         finally:
             FileSystem.PopDir()
 
@@ -269,7 +281,7 @@ class FileSystem:
             try:
                 shutil.move(f[1], moved_file_path)
             except:
-                print('Failed to move file "{0}" to "{1}".'.format(f[1], moved_file_path))
+                PrintException()
                 raise
 
     @staticmethod
@@ -302,9 +314,9 @@ class FileSystem:
         try:
             os.makedirs(str(dir))
         except FileExistsError as e:
-            print('Info: Dir already exists: "{0}"'.format(dir))
+            PrintException()
         except OSError as e:
-            print('Failed to create directory: "{0}"'.format(dir))
+            PrintException()
             raise
 
     @staticmethod
@@ -313,6 +325,12 @@ class FileSystem:
         FileSystem.ChangeDir(dir)
         return True
 
+    @staticmethod
+    def CreateSymlink(src, dest):
+        try:
+            os.symlink(str(src), str(dest))
+        except:
+            PrintException()
 
     @staticmethod
     def ChangeDir(dir):
